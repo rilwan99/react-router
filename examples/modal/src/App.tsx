@@ -7,19 +7,66 @@ import {
   useLocation,
   useNavigate,
   useParams,
+  createRoutesFromElements,
+  createBrowserRouter,
+  RouterProvider,
+  MemoryRouter,
 } from "react-router-dom";
 import { Dialog } from "@reach/dialog";
 import "@reach/dialog/styles.css";
 
 import { IMAGES, getImageById } from "./images";
 
-export default function App() {
-  let location = useLocation();
+// Changes from https://github.com/remix-run/react-router/tree/main/examples/modal
+//  - We use a URL-driven `<RouterProvider>` for the primary UI and a sibling
+//    `<MemoryRouter>` for the background UI
+//  - Since the route tree is static for the browser router, we use a
+//    `<ConditionalImage>` component to decide if we should render the normal
+//    or the modal version of the image based on whether the `backgroundLocation`
+//    exists
+//  - To trigger reflows from the `<App>` component, we sync the router
+//    `location.state` to a `useState` `backgroundLocation` via `router.subscribe`
 
+let browserRouter = createBrowserRouter([
+  {
+    path: "/",
+    Component: Layout,
+    children: [
+      {
+        index: true,
+        Component: Home,
+      },
+      {
+        path: "gallery",
+        Component: Gallery,
+      },
+      {
+        path: "/img/:id",
+        Component: ConditionalImage,
+      },
+      {
+        path: "*",
+        Component: NoMatch,
+      },
+    ],
+  },
+]);
+
+export default function App() {
   // The `backgroundLocation` state is the location that we were at when one of
   // the gallery links was clicked. If it's there, use it as the location for
   // the <Routes> so we show the gallery in the background, behind the modal.
-  let state = location.state as { backgroundLocation?: Location };
+  let [backgroundLocation, setBackgroundLocation] = React.useState(
+    browserRouter.state.location.state?.backgroundLocation
+  );
+
+  React.useEffect(() => {
+    return browserRouter.subscribe((state) => {
+      if (state.navigation.state === "idle") {
+        setBackgroundLocation(state.location.state?.backgroundLocation);
+      }
+    });
+  }, []);
 
   return (
     <div>
@@ -53,26 +100,33 @@ export default function App() {
         the background page.
       </p>
 
-      <Routes location={state?.backgroundLocation || location}>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="gallery" element={<Gallery />} />
-          <Route path="/img/:id" element={<ImageView />} />
-          <Route path="*" element={<NoMatch />} />
-        </Route>
-      </Routes>
+      {/* Render the background UI via a sibling MemoryRouter.  This only really
+          needs the routes that can be in the background */}
+      {backgroundLocation ? (
+        <MemoryRouter>
+          <Routes location={backgroundLocation}>
+            <Route path="/" element={<Layout />}>
+              <Route path="gallery" element={<Gallery />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      ) : null}
 
-      {/* Show the modal when a `backgroundLocation` is set */}
-      {state?.backgroundLocation && (
-        <Routes>
-          <Route path="/img/:id" element={<Modal />} />
-        </Routes>
-      )}
+      {/* Render the primary UI */}
+      <RouterProvider router={browserRouter} />
     </div>
   );
 }
 
 function Layout() {
+  let { backgroundLocation } = useLocation().state || {};
+
+  // When rendering as an overlay, skip the layout shell and just render the
+  // child image modal
+  if (backgroundLocation) {
+    return <Outlet />;
+  }
+
   return (
     <div>
       <nav>
@@ -150,6 +204,11 @@ function Gallery() {
       </div>
     </div>
   );
+}
+
+function ConditionalImage() {
+  let { backgroundLocation } = useLocation().state || {};
+  return backgroundLocation ? <Modal /> : <ImageView />;
 }
 
 function ImageView() {
