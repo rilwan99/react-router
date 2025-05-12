@@ -171,6 +171,10 @@ export function RSCStaticRouter({
       },
     },
     routeModules: {},
+    routeDiscovery: {
+      mode: "lazy",
+      manifestPath: "",
+    },
   };
 
   return (
