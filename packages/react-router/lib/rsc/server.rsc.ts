@@ -489,6 +489,14 @@ async function generateStaticContextResponse(
               })
             )
         : undefined;
+      const errorRouteId = ErrorBoundary
+        ? [...staticContext.matches]
+            .reverse()
+            .find((match) => staticContext.errors?.[match.route.id])?.route.id
+        : undefined;
+      const error = errorRouteId
+        ? staticContext.errors?.[errorRouteId]
+        : undefined;
       const errorElement = ErrorBoundary
         ? React.createElement(
             Layout,
@@ -497,9 +505,10 @@ async function generateStaticContextResponse(
               loaderData,
               actionData,
               params,
-              error: [...staticContext.matches]
-                .reverse()
-                .find((match) => staticContext.errors?.[match.route.id]),
+              error:
+                ErrorBoundary.$$typeof === Symbol.for("react.client.reference")
+                  ? undefined
+                  : error,
             })
           )
         : undefined;
