@@ -21,13 +21,12 @@ import {
   type LoaderFunction,
   type Params,
   type ShouldRevalidateFunction,
-  type unstable_RouterContextProvider,
   isRouteErrorResponse,
   matchRoutes,
   convertRouteMatchToUiMatch,
 } from "../router/utils";
 import { getDocumentHeaders } from "../server-runtime/headers";
-import type { RouteMatch } from "../context";
+import type { RouteMatch, RouteObject } from "../context";
 import invariant from "../server-runtime/invariant";
 
 type ServerRouteObjectBase = {
@@ -312,7 +311,11 @@ async function generateRenderResponse(
   }
 
   // Create the handler here with exploded routes
-  const handler = createStaticHandler(routes);
+  const handler = createStaticHandler(routes, {
+    mapRouteProperties: (r) => ({
+      hasErrorBoundary: (r as RouteObject).ErrorBoundary != null,
+    }),
+  });
 
   const result = await handler.query(request, {
     skipLoaderErrorBubbling: isDataRequest,
@@ -581,15 +584,15 @@ async function getServerRouteMatch(
           })
         )
       : undefined;
-  let error: unknown = undefined;
-  if (ErrorBoundary && staticContext.errors) {
-    for (const match of [...staticContext.matches].reverse()) {
-      if (match.route.id in staticContext.errors) {
-        error = staticContext.errors[match.route.id];
-        break;
-      }
-    }
-  }
+  // let error: unknown = undefined;
+  // if (ErrorBoundary && staticContext.errors) {
+  //   for (const match of [...staticContext.matches].reverse()) {
+  //     if (match.route.id in staticContext.errors) {
+  //       error = staticContext.errors[match.route.id];
+  //       break;
+  //     }
+  //   }
+  // }
   const errorElement = ErrorBoundary
     ? React.createElement(
         Layout,
@@ -598,7 +601,7 @@ async function getServerRouteMatch(
           loaderData,
           actionData,
           params,
-          error,
+          error: staticContext.errors?.[match.route.id],
         })
       )
     : undefined;
