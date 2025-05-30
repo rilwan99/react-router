@@ -29,12 +29,14 @@ export interface ViteBuildOptions {
   sourcemapServer?: boolean | "inline" | "hidden";
 }
 
+// Main build function that orchestrates the whole build process
 export async function build(root: string, viteBuildOptions: ViteBuildOptions) {
   // Ensure Vite's ESM build is preloaded at the start of the process
   // so it can be accessed synchronously via `getVite`
   await preloadVite();
   let vite = getVite();
 
+  // Loads the react router config
   let configResult = await loadConfig({
     rootDirectory: root,
     mode: viteBuildOptions.mode ?? "production",
@@ -62,6 +64,7 @@ export async function build(root: string, viteBuildOptions: ViteBuildOptions) {
     : viteBuild(root, viteBuildOptions));
 }
 
+// Experimental Environment API
 async function viteAppBuild(
   root: string,
   {
@@ -125,6 +128,7 @@ async function viteAppBuild(
   await builder.buildApp();
 }
 
+// Standard build
 async function viteBuild(
   root: string,
   {
@@ -140,6 +144,7 @@ async function viteBuild(
     sourcemapServer,
   }: ViteBuildOptions
 ) {
+  // Resolves the Vite config and extracts the React Router plugin context.
   let viteUserConfig: Vite.UserConfig = {};
   let viteConfig = await resolveViteConfig({
     configFile,
@@ -208,6 +213,7 @@ async function viteBuild(
     { viteUserConfig }
   );
 
+  // Cleans the build directory.
   await cleanBuildDirectory(viteConfig, ctx);
 
   // Run the Vite client build first
